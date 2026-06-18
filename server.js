@@ -38,6 +38,7 @@ async function initDB() {
         title TEXT NOT NULL,
         body TEXT,
         date DATE DEFAULT CURRENT_DATE,
+        image TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );
 
@@ -122,10 +123,10 @@ app.get('/api/announcements', async (req, res) => {
 // Add announcement (admin only)
 app.post('/api/announcements', authMiddleware, async (req, res) => {
   try {
-    const { title, body, date } = req.body;
+    const { title, body, date, image } = req.body;
     const result = await pool.query(
-      'INSERT INTO announcements (title, body, date) VALUES ($1, $2, $3) RETURNING *',
-      [title, body, date || new Date().toISOString().split('T')[0]]
+      'INSERT INTO announcements (title, body, date, image) VALUES ($1, $2, $3, $4) RETURNING *',
+      [title, body, date || new Date().toISOString().split('T')[0], image || null]
     );
     res.json(result.rows[0]);
   } catch (err) {
