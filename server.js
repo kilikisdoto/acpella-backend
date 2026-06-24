@@ -13,7 +13,7 @@ const pool = new Pool({
 
 // Middleware
 app.use(cors({
-  origin: ['https://acpella.netlify.app', 'http://localhost:3000', '*'],
+  origin: ['https://acpella.netlify.app', 'https://acpella-website.vercel.app', 'http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
