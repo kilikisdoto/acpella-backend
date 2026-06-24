@@ -58,6 +58,14 @@ async function initDB() {
         sort_order INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS isologismoi (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        pdf_data TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
     console.log('✅ Database tables ready');
   } catch (err) {
@@ -232,6 +240,48 @@ app.put('/api/pages/:id', authMiddleware, async (req, res) => {
 app.delete('/api/pages/:id', authMiddleware, async (req, res) => {
   try {
     await pool.query('DELETE FROM pages WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── ISOLOGISMOI API ───
+app.get('/api/isologismoi', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, title, year FROM isologismoi ORDER BY year DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/isologismoi/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM isologismoi WHERE id = $1', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/isologismoi', authMiddleware, async (req, res) => {
+  try {
+    const { title, year, pdf_data } = req.body;
+    const result = await pool.query(
+      'INSERT INTO isologismoi (title, year, pdf_data) VALUES ($1, $2, $3) RETURNING id',
+      [title, year, pdf_data]
+    );
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/isologismoi/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM isologismoi WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
