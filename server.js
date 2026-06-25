@@ -66,6 +66,14 @@ async function initDB() {
         pdf_data TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       );
+
+      CREATE TABLE IF NOT EXISTS certificates (
+        id SERIAL PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        pdf_data TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
     `);
     console.log('✅ Database tables ready');
   } catch (err) {
@@ -282,6 +290,48 @@ app.post('/api/isologismoi', authMiddleware, async (req, res) => {
 app.delete('/api/isologismoi/:id', authMiddleware, async (req, res) => {
   try {
     await pool.query('DELETE FROM isologismoi WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── CERTIFICATES API ───
+app.get('/api/certificates', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, title, description FROM certificates ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/certificates/:id', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM certificates WHERE id = $1', [req.params.id]);
+    if (!result.rows.length) return res.status(404).json({ error: 'Not found' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/certificates', authMiddleware, async (req, res) => {
+  try {
+    const { title, description, pdf_data } = req.body;
+    const result = await pool.query(
+      'INSERT INTO certificates (title, description, pdf_data) VALUES ($1, $2, $3) RETURNING id',
+      [title, description || '', pdf_data || null]
+    );
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/certificates/:id', authMiddleware, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM certificates WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
