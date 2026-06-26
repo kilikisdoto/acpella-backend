@@ -72,9 +72,11 @@ async function initDB() {
         title TEXT NOT NULL,
         description TEXT,
         pdf_data TEXT,
+        icon VARCHAR(50) DEFAULT 'ti-certificate',
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
+    await pool.query("ALTER TABLE certificates ADD COLUMN IF NOT EXISTS icon VARCHAR(50) DEFAULT 'ti-certificate'");
     console.log('✅ Database tables ready');
   } catch (err) {
     console.error('DB init error:', err);
@@ -299,7 +301,7 @@ app.delete('/api/isologismoi/:id', authMiddleware, async (req, res) => {
 // ─── CERTIFICATES API ───
 app.get('/api/certificates', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, title, description FROM certificates ORDER BY created_at DESC');
+    const result = await pool.query('SELECT id, title, description, icon FROM certificates ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -318,10 +320,10 @@ app.get('/api/certificates/:id', async (req, res) => {
 
 app.post('/api/certificates', authMiddleware, async (req, res) => {
   try {
-    const { title, description, pdf_data } = req.body;
+    const { title, description, pdf_data, icon } = req.body;
     const result = await pool.query(
-      'INSERT INTO certificates (title, description, pdf_data) VALUES ($1, $2, $3) RETURNING id',
-      [title, description || '', pdf_data || null]
+      'INSERT INTO certificates (title, description, pdf_data, icon) VALUES ($1, $2, $3, $4) RETURNING id',
+      [title, description || '', pdf_data || null, icon || 'ti-certificate']
     );
     res.json({ success: true, id: result.rows[0].id });
   } catch (err) {
