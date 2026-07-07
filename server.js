@@ -87,12 +87,68 @@ async function initDB() {
 const ADMIN_USER = 'admin.acpella';
 const ADMIN_PASS = 'acpella123';
 
+
+// ─── RATE LIMITING ───
+const loginAttempts = {};
+const MAX_ATTEMPTS = 5;
+const BLOCK_TIME = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, firstAttempt: now, blocked: false };
+  const record = loginAttempts[ip];
+  
+  // Reset if block time has passed
+  if (record.blocked && now - record.firstAttempt > BLOCK_TIME) {
+    loginAttempts[ip] = { count: 0, firstAttempt: now, blocked: false };
+    return { allowed: true };
+  }
+  
+  if (record.blocked) {
+    const remaining = Math.ceil((BLOCK_TIME - (now - record.firstAttempt)) / 60000);
+    return { allowed: false, remaining };
+  }
+  
+  return { allowed: true };
+}
+
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, firstAttempt: now, blocked: false };
+  loginAttempts[ip].count++;
+  if (loginAttempts[ip].count >= MAX_ATTEMPTS) {
+    loginAttempts[ip].blocked = true;
+    loginAttempts[ip].firstAttempt = now;
+  }
+}
+
+function resetAttempts(ip) {
+  delete loginAttempts[ip];
+}
+
 app.post('/api/login', (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const rateCheck = checkRateLimit(ip);
+  
+  if (!rateCheck.allowed) {
+    return res.status(429).json({ 
+      success: false, 
+      message: `Πολλές αποτυχημένες προσπάθειες. Δοκιμάστε ξανά σε ${rateCheck.remaining} λεπτά.` 
+    });
+  }
+  
   const { username, password } = req.body;
   if (username === ADMIN_USER && password === ADMIN_PASS) {
+    resetAttempts(ip);
     res.json({ success: true, token: 'acpella-admin-2025' });
   } else {
-    res.status(401).json({ success: false, message: 'Λάθος στοιχεία' });
+    recordFailedAttempt(ip);
+    const attempts = loginAttempts[ip] ? loginAttempts[ip].count : 0;
+    const remaining = MAX_ATTEMPTS - attempts;
+    res.status(401).json({ 
+      success: false, 
+      message: remaining > 0 ? `Λάθος στοιχεία. ${remaining} απόπειρες απομένουν.` : 'Ο λογαριασμός μπλοκαρίστηκε για 15 λεπτά.'
+    });
   }
 });
 
